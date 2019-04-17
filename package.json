@@ -1,0 +1,41 @@
+{
+  "name": "lite-lifting",
+  "version": "1.0.0",
+  "description": "Web framework for starting https web servers with jws tokens and user management and socket.io",
+  "main": "lite-lifting.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/AnthonyRuffino/lite-lifting.git"
+  },
+  "keywords": [
+    "ssl",
+    "https",
+    "socket.io",
+    "jws",
+    "user",
+    "tls",
+    "cert"
+  ],
+  "author": "Anthony Ruffino",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/AnthonyRuffino/lite-lifting/issues"
+  },
+  "homepage": "https://github.com/AnthonyRuffino/lite-lifting#readme",
+  "dependencies": {
+    "body-parser": "^1.18.3",
+    "cookie-parser": "^1.4.4",
+    "express": "^4.16.4",
+    "formidable": "^1.2.1",
+    "fresh-cert": "^1.0.2",
+    "fs": "0.0.2",
+    "host-cookie": "^1.0.0",
+    "jsonwebtoken": "^8.5.1",
+    "jwt-cookie-passer": "^2.0.0",
+    "logger-plus-plus": "^1.0.0",
+    "no-extension": "^1.0.2",
+  }
+}
