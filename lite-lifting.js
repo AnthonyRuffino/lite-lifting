@@ -2,30 +2,37 @@
 class LiteLifting {
   constructor(config) {
 
-    console.log('Starting Lite Lifting Framework');
-    (() => {
-      const defaultConfig = {
-        configureTLS: undef(process.env.configureTLS, false),
-        dbUser: process.env.ll_dbUser || 'root',
-        dbSecret: process.env.ll_dbSecret || 'secret',
-        dbHost: process.env.ll_dbPort || '127.0.0.1',
-        dbPort: process.env.ll_dbHost || '3306',
-        jwtSecret: process.env.ll_jwtSecret || [1, 1, 1].flatMap(Math.random).reduce((a, b) => a + '' + b),
-        useHostCookie: undef(process.env.ll_useHostCookie, true),
-        useJwtCookiePasser: undef(process.env.ll_useJwtCookiePasser, true),
-        useLoggerPlusPlus: undef(process.env.ll_useLoggerPlusPlus, false),
-        useNoExtension: undef(process.env.ll_useNoExtension, true),
-        usePublicPrivateTests: undef(process.env.ll_usePublicPrivateTests, true),
-        userService: defaultUserService,
-        useSocketBuddy: undef(process.env.ll_useSocketBuddy, false),
-        useYourSql: undef(process.env.ll_useYourSql, true)
-      };
-
-      defaulter(config, defaultConfig);
-      this.configureLoggerPlusPlus(config);
-    })();
-
-
+    
+    const defaultConfig = {
+      port: process.env.ll_port || 8080,
+      ip: process.env.ll_ip || "0.0.0.0",
+      securePort: process.env.ll_securePort || 443,
+      secureIP: process.env.ll_secureIP || "0.0.0.0",
+      configureTLS: undef(process.env.ll_configureTLS, false),
+      dbUser: process.env.ll_dbUser || 'root',
+      dbSecret: process.env.ll_dbSecret || 'secret',
+      dbHost: process.env.ll_dbHost || '127.0.0.1',
+      dbPort: process.env.ll_dbPort || '3306',
+      jwtSecret: process.env.ll_jwtSecret || [1, 1, 1].flatMap(Math.random).reduce((a, b) => a + '' + b),
+      useHostCookie: undef(process.env.ll_useHostCookie, true),
+      useJwtCookiePasser: undef(process.env.ll_useJwtCookiePasser, true),
+      useLoggerPlusPlus: undef(process.env.ll_useLoggerPlusPlus, false),
+      useNoExtension: undef(process.env.ll_useNoExtension, true),
+      usePublicPrivateTests: undef(process.env.ll_usePublicPrivateTests, true),
+      userService: config.defaultUserService && defaultUserService,
+      useSocketBuddy: undef(process.env.ll_useSocketBuddy, false),
+      useYourSql: undef(process.env.ll_useYourSql, true),
+      loglevels: ['info', 'warn', 'error']
+    };
+    defaulter(config, defaultConfig);
+    
+    this.loggers = config.loglevels
+      .map((level)=> ({ enabled: true, _: console[level], level}))
+      .reduce((a, c)=> ({...a, [c.level]: c}),{});
+      
+    this.configureLoggerPlusPlus(config);
+    this.log('info', 'Starting Lite Lifting Framework');
+    
     this.http = require('http');
     this.express = require('express');
     this.fs = require('fs');
@@ -36,27 +43,32 @@ class LiteLifting {
     this.router = this.express();
     this.server = this.http.createServer(this.router);
 
+
     // COOKIE PARSER
     this.router.use(require('cookie-parser')());
+
 
     // BODY PARSER
     this.bodyParser = require('body-parser');
     this.urlencodedParser = this.bodyParser.urlencoded({ extended: false });
     this.router.use(this.bodyParser.json());
 
+
     // HOST COOKIE
     this.configureHostCookie(config);
 
 
     // SECURE SERVER
-    this.secureServer = config.configureTLS && require('fresh-cert')({
-      router: this.routher,
-      sslKeyFile: process.env.sslKeyFile || './ssl/domain-key.pem',
-      sslDomainCertFile: process.env.sslDomainCertFile || './ssl/domain.org.crt',
-      ssCaBundleFile: process.env.ssCaBundleFile || './ssl/bundle.crt'
+    this.secureServer = config.freshCertConfig && require('fresh-cert')({
+      router: this.router,
+      sslKeyFile: config.freshCertConfig.sslKeyFile,
+      sslDomainCertFile: config.freshCertConfig.sslDomainCertFile,
+      sslCaBundleFile: config.freshCertConfig.sslCaBundleFile
     });
 
     this.configureYourSql(config);
+    
+    this.configureStorming(config);
 
     this.plugInMiddleware(config);
 
@@ -65,53 +77,59 @@ class LiteLifting {
     this.configurePublicPrivateTests(config);
 
     this.config = config;
+    
+    
   }
+  
+  log(level, msg) {
+    (this.loggers[level] && this.loggers[level].enabled) && this.loggers[level]._(msg);
+  }
+  
+  
 
-  run() {
+  start(callBack) {
     if (this.yourSql) {
       this.yourSql.createDatabase(this.config.schema).then(() => {
-        //ormHelper.sync(start);
-        start();
+        ormSync();
       }).catch((err) => {
-        console.log(err);
-        start();
+        this.log('error', err);
+        ormSync();
       });
     }
     else {
-      start();
+      ormSync();
     }
-    const start = () => {
-      //////////////////////////
-      //START UP SERVER(S)//////
-      //////////////////////////
-
-      //HTTPS
+    const ormSync = () => {
+      if(this.storming) {
+        this.storming.sync(startHttpServer);
+      } else {
+        startHttpsServer();
+      }
+    };
+    const startHttpServer = (secureAddress, secureAddressErr) => {
+      this.server.listen(this.config.port, this.config.ip, () => {
+        let address = this.server.address();
+        this.log('info', "Server listening at", address.address + ":" + address.port);
+        callBack({address, secureAddress, secureAddressErr});
+      });
+    };
+    const startHttpsServer = () => {
       if (this.secureServer != null) {
         try {
-          this.secureServer.listen(process.env.SECURE_PORT || 443, process.env.SECURE_IP || "0.0.0.0", function() {
-            let addr = this.secureServer.address();
-            console.log("Secure server listening at", addr.address + ":" + addr.port);
+          this.secureServer.listen(this.config.securePort, this.secureIp, function() {
+            let address = this.secureServer.address();
+            this.log('info', "Secure server listening at", address.address + ":" + address.port);
+            startHttpServer(address);
           });
         }
-        catch (err2) {
-          console.log("Err: " + err2);
-          //secureServerErr = "Err: " + err2;
+        catch (secureAddressErr) {
+          this.log('error', "Error starting secure server: " + secureAddressErr);
+          startHttpServer(null, secureAddressErr);
         }
+      } else {
+        this.log('warn', "No HTTPS configured. Set 'freshCertConfig' property.");
+        startHttpServer();
       }
-
-
-      if (this.server === undefined || this.server === null) {
-        this.server = this.http.createServer(this.router);
-      }
-
-
-      this.server.listen(process.env.PORT || 3000, process.env.IP || "0.0.0.0", function() {
-        console.log('Starting lite-lifting server...');
-        console.log('process.env.IP: ' + process.env.IP);
-        console.log('process.env.PORT: ' + process.env.PORT);
-        let addr = this.server.address();
-        console.log("Lite server listening at", addr.address + ":" + addr.port);
-      });
     };
   }
 
@@ -133,7 +151,7 @@ class LiteLifting {
       require('logger-plus-plus')(
         defaulter(
           config.loggerPlusPlusConfig || {}, {
-            enabled: undef(process.env.LL_LPP_enabled, true),
+            enabled: undef(process.env.ll_lpp_enabled, true),
             enabledTypes: {
               log: undef(process.env.ll_loggerPlusPlus_log, true),
               error: undef(process.env.ll_loggerPlusPlus_error, true),
@@ -164,14 +182,36 @@ class LiteLifting {
       return;
     }
     this.yourSql = require('your-sql')();
-    this.yourSql.init(defaulter(config.yourSqlConfig || {}, {
+    this.yourSqlConfig = defaulter(config.yourSqlConfig || {}, {
       host: process.env.ll_yourSql_host || '127.0.0.1',
       user: process.env.ll_yourSql_user || 'root',
       password: process.env.ll_yourSql_password || 'secret',
       database: process.env.ll_yourSql_database || 'litelifting',
       connectionLimit: process.env.ll_yourSql_connectionLimit || 100,
       debug: process.env.ll_yourSql_debug || true
-    }));
+    });
+    this.yourSql.init(this.yourSqlConfig);
+  }
+  
+  configureStorming(config) {
+    this.storming = null;
+    if (!config.useStorming) {
+      return;
+    } else if(!this.yourSql) {
+      this.log('error', 'storming requires your-sql');
+      return;
+    }
+    const entities = [];
+    
+    this.storming = require('storming')(defaulter(config.stormingConfig || {},{
+        ip: this.yourSqlConfig.host,
+        user: this.yourSqlConfig.user,
+        password: this.yourSqlConfig.password,
+        database: this.yourSqlConfig.database,
+        yourSql: this.yourSql,
+        entities,
+        loadDefaultData: process.env.LOAD_DEFAULT_DATA
+      }));
   }
 
   plugInMiddleware(config) {
@@ -210,7 +250,7 @@ class LiteLifting {
 
     this.socketBuddy = null;
     if (config.useSocketBuddy) {
-      console.log('---SOCKET BUDDY');
+      this.log('debug', '---SOCKET BUDDY');
       this.socketBuddy = require('socket-buddy')({
         server: this.secureServer !== null ? this.secureServer : this.server,
         tokenUtil: this.jwtCookiePasser
@@ -226,7 +266,7 @@ class LiteLifting {
     }
 
     if (config.useJwtCookiePasser) {
-      console.log('---JWT');
+      this.debug('log', '---JWT');
       this.jwtCookiePasser.init(
         defaulter(config.jwtCookiePasserConfig || {}, {
           router: this.router,
@@ -235,7 +275,7 @@ class LiteLifting {
           loginLogoutHooks: {
             passRawUserInLoginHook: true,
             loginUserHook: (req, mappedUser, token, user) => {
-              let sio = this.socketIOHelper;
+              let sio = this.socketBuddy;
               if (sio && sio.loginUserHook && typeof sio.loginUserHook === 'function') {
                 sio.loginUserHook(req, mappedUser, token, user);
               }
@@ -244,7 +284,7 @@ class LiteLifting {
               });
             },
             logoutUserHook: (req) => {
-              let sio = this.socketIOHelper;
+              let sio = this.socketBuddy;
               if (sio && sio.logoutUserHook && typeof sio.logoutUserHook === 'function') {
                 sio.logoutUserHook(req);
               }
@@ -252,7 +292,7 @@ class LiteLifting {
                 hook(req);
               });
             }
-          } //this.socketIOHelper
+          }
         }));
     }
   }

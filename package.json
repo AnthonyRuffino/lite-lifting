@@ -37,5 +37,6 @@
     "jwt-cookie-passer": "^2.0.0",
     "logger-plus-plus": "^1.0.0",
     "no-extension": "^1.0.2",
+    "storming": "^1.0.0",
   }
 }
