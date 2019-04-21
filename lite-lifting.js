@@ -19,7 +19,7 @@ class LiteLifting {
       useLoggerPlusPlus: undef(process.env.ll_useLoggerPlusPlus, false),
       useNoExtension: undef(process.env.ll_useNoExtension, true),
       usePublicPrivateTests: undef(process.env.ll_usePublicPrivateTests, true),
-      userService: config.defaultUserService && defaultUserService,
+      userService: defaultUserService,
       useSocketBuddy: undef(process.env.ll_useSocketBuddy, false),
       useYourSql: undef(process.env.ll_useYourSql, true),
       loglevels: ['info', 'warn', 'error']
@@ -210,7 +210,7 @@ class LiteLifting {
         database: this.yourSqlConfig.database,
         yourSql: this.yourSql,
         entities,
-        loadDefaultData: process.env.LOAD_DEFAULT_DATA
+        loadDefaultData: process.env.ll_storming_loadDefaultData
       }));
   }
 
