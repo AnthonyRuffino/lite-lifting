@@ -229,7 +229,7 @@ class LiteLifting {
       createAppSchema: undef(process.env.ll_yourSql_createAppSchema, true),
       appSchema: process.env.ll_yourSql_appSchema || this.config.schema,
       connectionLimit: process.env.ll_yourSql_connectionLimit || 100,
-      debug: process.env.ll_yourSql_debug || true
+      debug: process.env.ll_yourSql_debug || false
     });
     this.yourSql.init(this.yourSqlConfig);
   }
