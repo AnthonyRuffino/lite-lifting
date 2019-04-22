@@ -1,6 +1,6 @@
 {
   "name": "lite-lifting",
-  "version": "1.0.5",
+  "version": "1.0.6",
   "description": "Web framework for starting https web servers with jws tokens and user management and socket.io",
   "main": "lite-lifting.js",
   "scripts": {
