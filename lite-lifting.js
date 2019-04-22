@@ -22,7 +22,7 @@ class LiteLifting {
       usePublicPrivateTests: undef(process.env.ll_usePublicPrivateTests, true),
       userService: config.useDummyUserService && defaultUserService,
       useSocketBuddy: undef(process.env.ll_useSocketBuddy, false),
-      useYouser: undef(process.env.ll_useSocketBuddy, true),
+      useYouser: undef(process.env.ll_useYouser, true),
       useYourSql: undef(process.env.ll_useYourSql, true),
       useStorming: undef(process.env.ll_useStorming, true),
       routerHooks: [],
