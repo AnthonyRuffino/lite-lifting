@@ -273,11 +273,11 @@ class LiteLifting {
 
 LiteLifting.getEntities = function() {
   const entities = [];
-  entities.push(require('./utils/orm/entities/role.js')());
-  entities.push(require('./utils/orm/entities/user.js')());
-  entities.push(require('./utils/orm/entities/file.js')());
-  entities.push(require('./utils/orm/entities/token.js')());
-  entities.push(require('./utils/orm/entities/captcha.js')());
+  entities.push(require('./entities/role.js')());
+  entities.push(require('./entities/user.js')());
+  entities.push(require('./entities/file.js')());
+  entities.push(require('./entities/token.js')());
+  entities.push(require('./entities/captcha.js')());
   return entities;
 };
 
