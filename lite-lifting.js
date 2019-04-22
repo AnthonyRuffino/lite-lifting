@@ -1,19 +1,20 @@
 'use strict';
 class LiteLifting {
   constructor(config) {
-
     
     const defaultConfig = {
+      publicdir: global.__publicdir,
+      schema: config.appName,
       port: process.env.ll_port || 8080,
       ip: process.env.ll_ip || "0.0.0.0",
       securePort: process.env.ll_securePort || 443,
       secureIP: process.env.ll_secureIP || "0.0.0.0",
-      configureTLS: undef(process.env.ll_configureTLS, false),
       dbUser: process.env.ll_dbUser || 'root',
       dbSecret: process.env.ll_dbSecret || 'secret',
       dbHost: process.env.ll_dbHost || '127.0.0.1',
       dbPort: process.env.ll_dbPort || '3306',
-      jwtSecret: process.env.ll_jwtSecret || [1, 1, 1].flatMap(Math.random).reduce((a, b) => a + '' + b),
+      jwtSecret: process.env.ll_jwtSecret || [1, 1, 1].map(Math.random).reduce((a, b) => a + '' + b),
+      sessionExpiration: (60 * 60 * 24 * 7),
       useHostCookie: undef(process.env.ll_useHostCookie, true),
       useJwtCookiePasser: undef(process.env.ll_useJwtCookiePasser, true),
       useLoggerPlusPlus: undef(process.env.ll_useLoggerPlusPlus, false),
@@ -22,15 +23,20 @@ class LiteLifting {
       userService: defaultUserService,
       useSocketBuddy: undef(process.env.ll_useSocketBuddy, false),
       useYourSql: undef(process.env.ll_useYourSql, true),
+      useStorming: undef(process.env.ll_useStorming, true),
+      routerHooks: [],
       loglevels: ['info', 'warn', 'error']
     };
     defaulter(config, defaultConfig);
+    
+    this.config = config;
+    
+    this.configureLoggerPlusPlus(config);
     
     this.loggers = config.loglevels
       .map((level)=> ({ enabled: true, _: console[level], level}))
       .reduce((a, c)=> ({...a, [c.level]: c}),{});
       
-    this.configureLoggerPlusPlus(config);
     this.log('info', 'Starting Lite Lifting Framework');
     
     this.http = require('http');
@@ -70,26 +76,21 @@ class LiteLifting {
     
     this.configureStorming(config);
 
-    this.plugInMiddleware(config);
-
-    this.socketIOAndJwt(config);
-
-    this.configurePublicPrivateTests(config);
-
-    this.config = config;
+    // this.socketIOAndJwt(config);
     
+    // this.plugInMiddleware(config);
     
+    // this.configurePublicPrivateTests(config);
+
   }
   
   log(level, msg) {
     (this.loggers[level] && this.loggers[level].enabled) && this.loggers[level]._(msg);
   }
   
-  
-
-  start(callBack) {
-    if (this.yourSql) {
-      this.yourSql.createDatabase(this.config.schema).then(() => {
+  sync(callBack) {
+    if (this.yourSql && this.yourSqlConfig.appSchema && this.yourSqlConfig.createAppSchema) {
+      this.yourSql.createDatabase(this.yourSqlConfig.appSchema).then(() => {
         ormSync();
       }).catch((err) => {
         this.log('error', err);
@@ -101,11 +102,14 @@ class LiteLifting {
     }
     const ormSync = () => {
       if(this.storming) {
-        this.storming.sync(startHttpServer);
+        this.storming.sync(callBack);
       } else {
-        startHttpsServer();
+        callBack();
       }
     };
+  }
+
+  start(callBack) {
     const startHttpServer = (secureAddress, secureAddressErr) => {
       this.server.listen(this.config.port, this.config.ip, () => {
         let address = this.server.address();
@@ -131,6 +135,7 @@ class LiteLifting {
         startHttpServer();
       }
     };
+    startHttpsServer();
   }
 
 
@@ -169,6 +174,7 @@ class LiteLifting {
       this.router.use(require('host-cookie')(
         defaulter(
           config.hostCookieConfig || {}, {
+            cookieName: config.appName,
             defaultHost: process.env.ll_hostCookie_defaultHost,
             maxAge: undef(process.env.ll_hostCookie_maxAge, (1000 * 60 * 60 * 24 * 365)),
           }
@@ -183,10 +189,12 @@ class LiteLifting {
     }
     this.yourSql = require('your-sql')();
     this.yourSqlConfig = defaulter(config.yourSqlConfig || {}, {
-      host: process.env.ll_yourSql_host || '127.0.0.1',
-      user: process.env.ll_yourSql_user || 'root',
-      password: process.env.ll_yourSql_password || 'secret',
-      database: process.env.ll_yourSql_database || 'litelifting',
+      host: process.env.ll_yourSql_host || this.config.dbHost,
+      user: process.env.ll_yourSql_user || this.config.dbUser,
+      password: process.env.ll_yourSql_password || this.config.dbSecret,
+      database: process.env.ll_yourSql_controlSchema || 'mysql',
+      createAppSchema: undef(process.env.ll_yourSql_createAppSchema, true),
+      appSchema: process.env.ll_yourSql_appSchema || this.config.schema,
       connectionLimit: process.env.ll_yourSql_connectionLimit || 100,
       debug: process.env.ll_yourSql_debug || true
     });
@@ -201,101 +209,28 @@ class LiteLifting {
       this.log('error', 'storming requires your-sql');
       return;
     }
-    const entities = [];
+    const entities = LiteLifting.getEntities();
     
     this.storming = require('storming')(defaulter(config.stormingConfig || {},{
         ip: this.yourSqlConfig.host,
         user: this.yourSqlConfig.user,
         password: this.yourSqlConfig.password,
-        database: this.yourSqlConfig.database,
+        database: this.yourSqlConfig.appSchema,
         yourSql: this.yourSql,
         entities,
         loadDefaultData: process.env.ll_storming_loadDefaultData
       }));
   }
+}
 
-  plugInMiddleware(config) {
-    if (!config.publicdir) {
-      this.router.use('/', (req, res, next) => {
-        res.writeHead(200, {
-          'Content-Type': 'application/javascript'
-        });
-        res.end('<H1>Lite Lifting</H1>');
-      });
-    }
-
-    // File system middleware
-    if (config.useNoExtension) {
-      this.router.use(require('no-extension')(global.__publicdir));
-    }
-
-    if (config.publicdir) {
-      this.router.use(this.express.static(config.publicdir));
-    }
-
-  }
-
-  socketIOAndJwt(config) {
-
-    if (config.useJwtCookiePasser) {
-      this.jwtCookiePasser = new(require('jwt-cookie-passer')).JwtCookiePasser(
-        defaulter(config.jwtCookiePasserConfig || {}, {
-          domain: config.host,
-          secretOrKey: config.jwtSecret,
-          expiresIn: config.sessionExpiration,
-          useJsonOnLogin: false,
-          useJsonOnLogout: false
-        }));
-    }
-
-    this.socketBuddy = null;
-    if (config.useSocketBuddy) {
-      this.log('debug', '---SOCKET BUDDY');
-      this.socketBuddy = require('socket-buddy')({
-        server: this.secureServer !== null ? this.secureServer : this.server,
-        tokenUtil: this.jwtCookiePasser
-      });
-      this.socketBuddy.init();
-    }
-    else if (config.socketBuddyInstance) {
-      this.socketBuddy = config.socketBuddyInstance({
-        server: this.secureServer !== null ? this.secureServer : this.server,
-        tokenUtil: this.jwtCookiePasser
-      });
-      this.socketBuddy.init();
-    }
-
-    if (config.useJwtCookiePasser) {
-      this.debug('log', '---JWT');
-      this.jwtCookiePasser.init(
-        defaulter(config.jwtCookiePasserConfig || {}, {
-          router: this.router,
-          urlencodedParser: this.urlencodedParser,
-          userService: this.userService,
-          loginLogoutHooks: {
-            passRawUserInLoginHook: true,
-            loginUserHook: (req, mappedUser, token, user) => {
-              let sio = this.socketBuddy;
-              if (sio && sio.loginUserHook && typeof sio.loginUserHook === 'function') {
-                sio.loginUserHook(req, mappedUser, token, user);
-              }
-              (this.loginHooks || []).forEach((hook) => {
-                hook(req, mappedUser, token, user);
-              });
-            },
-            logoutUserHook: (req) => {
-              let sio = this.socketBuddy;
-              if (sio && sio.logoutUserHook && typeof sio.logoutUserHook === 'function') {
-                sio.logoutUserHook(req);
-              }
-              (this.logoutHooks || []).forEach((hook) => {
-                hook(req);
-              });
-            }
-          }
-        }));
-    }
-  }
+LiteLifting.getEntities = function() {
+  const entities = [];
+  entities.push(require('./entities/role.js')());
+  entities.push(require('./entities/user.js')());
+  entities.push(require('./entities/file.js')());
+  entities.push(require('./entities/token.js')());
+  entities.push(require('./entities/captcha.js')());
+  return entities;
 }
 
 
@@ -325,6 +260,4 @@ var defaultUserService = {
 };
 
 
-module.exports = function(config) {
-  return new LiteLifting(config);
-};
+module.exports = LiteLifting;
