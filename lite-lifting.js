@@ -76,7 +76,7 @@ class LiteLifting {
     
     this.configureStorming(config);
     
-    this.configureYouser();
+    this.configureYouser(config);
 
     this.configureJwCookieParser(config);
     
