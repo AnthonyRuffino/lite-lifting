@@ -30,6 +30,7 @@ class LiteLifting {
     defaulter(config, defaultConfig);
     
     this.config = config;
+    this.userService = config.userService;
     
     this.configureLoggerPlusPlus(config);
     
@@ -76,7 +77,7 @@ class LiteLifting {
     
     this.configureStorming(config);
 
-    // this.socketIOAndJwt(config);
+    this.configureJwCookieParser(config);
     
     // this.plugInMiddleware(config);
     
@@ -110,6 +111,38 @@ class LiteLifting {
   }
 
   start(callBack) {
+    
+    if (this.config.useJwtCookiePasser) {
+      this.log('debug', '---JWT');
+      this.jwtCookiePasser.init(
+        defaulter(this.config.jwtCookiePasserConfig || {}, {
+          router: this.router,
+          urlencodedParser: this.urlencodedParser,
+          userService: this.userService,
+          loginLogoutHooks: {
+            passRawUserInLoginHook: true,
+            loginUserHook: (req, mappedUser, token, user) => {
+              let sio = this.socketBuddy;
+              if (sio && sio.loginUserHook && typeof sio.loginUserHook === 'function') {
+                sio.loginUserHook(req, mappedUser, token, user);
+              }
+              (this.loginHooks || []).forEach((hook) => {
+                hook(req, mappedUser, token, user);
+              });
+            },
+            logoutUserHook: (req) => {
+              let sio = this.socketBuddy;
+              if (sio && sio.logoutUserHook && typeof sio.logoutUserHook === 'function') {
+                sio.logoutUserHook(req);
+              }
+              (this.logoutHooks || []).forEach((hook) => {
+                hook(req);
+              });
+            }
+          }
+        }));
+    }
+    
     const startHttpServer = (secureAddress, secureAddressErr) => {
       this.server.listen(this.config.port, this.config.ip, () => {
         let address = this.server.address();
@@ -221,17 +254,32 @@ class LiteLifting {
         loadDefaultData: process.env.ll_storming_loadDefaultData
       }));
   }
+  
+  configureJwCookieParser(config) {
+
+    if (config.useJwtCookiePasser) {
+      this.jwtCookiePasser = new(require('jwt-cookie-passer')).JwtCookiePasser(
+        defaulter(config.jwtCookiePasserConfig || {}, {
+          domain: config.host,
+          secretOrKey: config.jwtSecret,
+          expiresIn: config.sessionExpiration,
+          useJsonOnLogin: false,
+          useJsonOnLogout: false
+        }));
+    }
+  }
+
 }
 
 LiteLifting.getEntities = function() {
   const entities = [];
-  entities.push(require('./entities/role.js')());
-  entities.push(require('./entities/user.js')());
-  entities.push(require('./entities/file.js')());
-  entities.push(require('./entities/token.js')());
-  entities.push(require('./entities/captcha.js')());
+  entities.push(require('./utils/orm/entities/role.js')());
+  entities.push(require('./utils/orm/entities/user.js')());
+  entities.push(require('./utils/orm/entities/file.js')());
+  entities.push(require('./utils/orm/entities/token.js')());
+  entities.push(require('./utils/orm/entities/captcha.js')());
   return entities;
-}
+};
 
 
 var undef = (v, o) => v !== undefined ? v : o;
@@ -253,6 +301,9 @@ var defaultUserService = {
   },
   getUserById: (id, callback) => {
     callback({ id: id, username: id });
+  },
+  getUserByUsername: (username, callback) => {
+    callback({ id: username, username: username });
   },
   mapUserForJwtToken: (user) => {
     return user;
