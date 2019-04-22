@@ -20,7 +20,7 @@ class LiteLifting {
       useLoggerPlusPlus: undef(process.env.ll_useLoggerPlusPlus, false),
       useNoExtension: undef(process.env.ll_useNoExtension, true),
       usePublicPrivateTests: undef(process.env.ll_usePublicPrivateTests, true),
-      userService: defaultUserService,
+      userService: config.useDummyUserService && defaultUserService,
       useSocketBuddy: undef(process.env.ll_useSocketBuddy, false),
       useYourSql: undef(process.env.ll_useYourSql, true),
       useStorming: undef(process.env.ll_useStorming, true),
@@ -30,7 +30,6 @@ class LiteLifting {
     defaulter(config, defaultConfig);
     
     this.config = config;
-    this.userService = config.userService;
     
     this.configureLoggerPlusPlus(config);
     
@@ -76,6 +75,8 @@ class LiteLifting {
     this.configureYourSql(config);
     
     this.configureStorming(config);
+    
+    this.configureYouser();
 
     this.configureJwCookieParser(config);
     
@@ -253,6 +254,24 @@ class LiteLifting {
         entities,
         loadDefaultData: process.env.ll_storming_loadDefaultData
       }));
+  }
+  
+  configureYouser(config) {
+    this.userService = config.userService;
+    if(this.userService) {
+      return;
+    }
+    
+    if (!config.useYouser) {
+      return;
+    } else if(!this.storming) {
+      this.log('error', 'youser requires storming');
+      return;
+    }
+    
+    this.userService = new (require('youser'))(defaulter(config.youserConfig || {}, {
+      storming: this.storming
+    }));
   }
   
   configureJwCookieParser(config) {
