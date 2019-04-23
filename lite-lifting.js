@@ -8,7 +8,7 @@ class LiteLifting {
       port: process.env.ll_port || 8080,
       ip: process.env.ll_ip || "0.0.0.0",
       securePort: process.env.ll_securePort || 443,
-      secureIP: process.env.ll_secureIP || "0.0.0.0",
+      secureIp: process.env.ll_secureIp || "0.0.0.0",
       dbUser: process.env.ll_dbUser || 'root',
       dbSecret: process.env.ll_dbSecret || 'secret',
       dbHost: process.env.ll_dbHost || '127.0.0.1',
