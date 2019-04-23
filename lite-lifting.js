@@ -155,7 +155,7 @@ class LiteLifting {
     const startHttpsServer = () => {
       if (this.secureServer != null) {
         try {
-          this.secureServer.listen(this.config.securePort, this.secureIp, function() {
+          this.secureServer.listen(this.config.securePort, this.secureIp, () => {
             let address = this.secureServer.address();
             this.log('info', "Secure server listening at", address.address + ":" + address.port);
             startHttpServer(address);
