@@ -87,8 +87,8 @@ class LiteLifting {
 
   }
   
-  log(level, msg) {
-    (this.loggers[level] && this.loggers[level].enabled) && this.loggers[level]._(msg);
+  log(level, ...msg) {
+    (this.loggers[level] && this.loggers[level].enabled) && this.loggers[level]._(...msg);
   }
   
   sync(callBack) {
@@ -153,9 +153,9 @@ class LiteLifting {
       });
     };
     const startHttpsServer = () => {
-      if (this.secureServer != null) {
+      if (this.secureServer) {
         try {
-          this.secureServer.listen(this.config.securePort, this.secureIp, () => {
+          this.secureServer.listen(this.config.securePort, this.config.secureIp, () => {
             let address = this.secureServer.address();
             this.log('info', "Secure server listening at", address.address + ":" + address.port);
             startHttpServer(address);
