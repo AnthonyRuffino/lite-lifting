@@ -310,6 +310,8 @@ var defaulter = (params, def) => {
   return params;
 };
 
+LiteLifting.defaulter = defaulter;
+
 var defaultUserService = {
   login: (username, password, callback) => {
     if (username === password) {
