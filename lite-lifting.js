@@ -21,7 +21,6 @@ class LiteLifting {
       useNoExtension: undef(process.env.ll_useNoExtension, true),
       usePublicPrivateTests: undef(process.env.ll_usePublicPrivateTests, true),
       userService: config.useDummyUserService && defaultUserService,
-      useSocketBuddy: undef(process.env.ll_useSocketBuddy, false),
       useYouser: undef(process.env.ll_useYouser, true),
       useYourSql: undef(process.env.ll_useYourSql, true),
       useStorming: undef(process.env.ll_useStorming, true),
@@ -49,7 +48,7 @@ class LiteLifting {
     // ROUTER AND SERVER
     this.router = this.express();
     this.server = this.http.createServer(this.router);
-
+    
 
     // COOKIE PARSER
     this.router.use(require('cookie-parser')());
@@ -81,10 +80,12 @@ class LiteLifting {
 
     this.configureJwCookieParser(config);
     
-    // this.plugInMiddleware(config);
+    this.configurePublicPrivateTests(config);
     
-    // this.configurePublicPrivateTests(config);
-
+    if(config.publicdir) {
+      this.router.use(require('no-extension')(config.publicdir));
+      this.router.use(this.express.static(config.publicdir));
+    }
   }
   
   log(level, ...msg) {
@@ -124,7 +125,7 @@ class LiteLifting {
           loginLogoutHooks: {
             passRawUserInLoginHook: true,
             loginUserHook: (req, mappedUser, token, user) => {
-              let sio = this.socketBuddy;
+              let sio = this.socketHub;
               if (sio && sio.loginUserHook && typeof sio.loginUserHook === 'function') {
                 sio.loginUserHook(req, mappedUser, token, user);
               }
@@ -133,7 +134,7 @@ class LiteLifting {
               });
             },
             logoutUserHook: (req) => {
-              let sio = this.socketBuddy;
+              let sio = this.socketHub;
               if (sio && sio.logoutUserHook && typeof sio.logoutUserHook === 'function') {
                 sio.logoutUserHook(req);
               }
@@ -288,6 +289,37 @@ class LiteLifting {
         }));
     }
   }
+  
+  configureSocketHub({getEntity, rootHost, getStorming, getInfo}) {
+    var SrcString = require('src-string');
+    const srcString = new SrcString({
+      contentSrc: {
+        getEntity: getEntity
+      }
+    });
+    
+    let SocketHub = require('socket-hub');
+    let socketHub = new SocketHub({
+      appName: 'ncidence',
+      server: this.secureServer ? this.secureServer : this.server,
+      tokenUtil: this.jwtCookiePasser,
+      rootHost,
+      storming: this.storming,
+      
+      subdomainContent: {
+        getInfo,
+        getStorming,
+        getAlternateContent: (context) => srcString.getContent(context),
+        getContent: ({subdomain, type}) => {
+          const filePath = (type === 'common' ? global.__publicdir : global.__rootdir) + type + '.js';
+  		  	console.info(`[${subdomain}] - Loading default exports for ${type}. filePath: ${filePath}`);
+  		  	return require(filePath);
+        }
+      },
+    });
+    socketHub.init();
+    this.socketHub = socketHub;
+  }
 
 }
 
@@ -331,6 +363,16 @@ var defaultUserService = {
     return user;
   }
 };
+
+String.prototype.replaceAll = function(search, replacement) {
+  let target = this;
+  return target.split(search).join(replacement);
+};
+
+LiteLifting.schema = (host) => host.schema.replaceAll('-', '__').replaceAll('.', '_');
+
+exports.schema = process.env.DEFAULT_SCHEMA || 'worldy_io';//ncidence__aruffino_c9users_io
+exports.host = exports.schema.replaceAll('__', '-').replaceAll('_', '.');
 
 
 module.exports = LiteLifting;
