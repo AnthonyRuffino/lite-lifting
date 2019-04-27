@@ -19,7 +19,6 @@ class LiteLifting {
       useJwtCookiePasser: undef(process.env.ll_useJwtCookiePasser, true),
       useLoggerPlusPlus: undef(process.env.ll_useLoggerPlusPlus, false),
       useNoExtension: undef(process.env.ll_useNoExtension, true),
-      usePublicPrivateTests: undef(process.env.ll_usePublicPrivateTests, true),
       userService: config.useDummyUserService && defaultUserService,
       useYouser: undef(process.env.ll_useYouser, true),
       useYourSql: undef(process.env.ll_useYourSql, true),
@@ -79,8 +78,6 @@ class LiteLifting {
     this.configureYouser(config);
 
     this.configureJwCookieParser(config);
-    
-    this.configurePublicPrivateTests(config);
     
     if(config.publicdir) {
       this.router.use(require('no-extension')(config.publicdir));
@@ -172,19 +169,6 @@ class LiteLifting {
       }
     };
     startHttpsServer();
-  }
-
-
-  configurePublicPrivateTests(config) {
-    if (config.usePublicPrivateTests) {
-      this.router.get("/public", function(req, res) {
-        res.json({ message: "Public Success!", user: req.user });
-      });
-
-      this.router.get("/private", this.jwtCookiePasser.authRequired(), function(req, res) {
-        res.json({ message: "Private Success!", user: req.user });
-      });
-    }
   }
 
   configureLoggerPlusPlus(config) {
