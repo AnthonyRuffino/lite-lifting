@@ -369,6 +369,6 @@ String.prototype.replaceAll = function(search, replacement) {
   return target.split(search).join(replacement);
 };
 
-LiteLifting.schema = (host) => host.schema.replaceAll('-', '__').replaceAll('.', '_');
+LiteLifting.schema = (host) => host.replaceAll('-', '__').replaceAll('.', '_');
 
 module.exports = LiteLifting;
