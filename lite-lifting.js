@@ -371,8 +371,4 @@ String.prototype.replaceAll = function(search, replacement) {
 
 LiteLifting.schema = (host) => host.schema.replaceAll('-', '__').replaceAll('.', '_');
 
-exports.schema = process.env.DEFAULT_SCHEMA || 'worldy_io';//ncidence__aruffino_c9users_io
-exports.host = exports.schema.replaceAll('__', '-').replaceAll('_', '.');
-
-
 module.exports = LiteLifting;
