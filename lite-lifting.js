@@ -274,11 +274,11 @@ class LiteLifting {
     }
   }
   
-  configureSocketHub({appName, getEntity, rootHost, getStorming, getInfo}) {
+  configureSocketHub({appName, getAlternate, rootHost, getStorming, getInfo}) {
     var SrcString = require('src-string');
     const srcString = new SrcString({
       contentSrc: {
-        getEntity: getEntity
+        getEntity: getAlternate
       }
     });
     
