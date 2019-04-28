@@ -274,7 +274,7 @@ class LiteLifting {
     }
   }
   
-  configureSocketHub({getEntity, rootHost, getStorming, getInfo}) {
+  configureSocketHub({appName, getEntity, rootHost, getStorming, getInfo}) {
     var SrcString = require('src-string');
     const srcString = new SrcString({
       contentSrc: {
@@ -284,7 +284,7 @@ class LiteLifting {
     
     let SocketHub = require('socket-hub');
     let socketHub = new SocketHub({
-      appName: 'ncidence',
+      appName: appName || this.config.appName,
       server: this.secureServer ? this.secureServer : this.server,
       tokenUtil: this.jwtCookiePasser,
       rootHost,
